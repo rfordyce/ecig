@@ -1,0 +1,9 @@
+# 2015-03-06 RF
+# http://stackoverflow.com/a/11162362/4541045
+
+# circuits
+.fzz binary
+
+# SolidWorks Files
+.SLDPRT binary
+.SLDASM binary
