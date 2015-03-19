@@ -12,6 +12,8 @@ char line1[15];
 char line2[15];
 char line3[15];
 
+#include <PinChangeInt.h> // wattage-change interrupts
+
 // pin definitions
 #define PIN_BOARDLED    13
 #define PIN_READVOLTAGE A1
@@ -250,6 +252,26 @@ void draw() // graphic commands (will redraw the complete screen)
 /*watts change (encoder)*/
 /**/
 
+void incrementWattage()
+{
+	if(debouncecheck) {
+		MW_former = MW;
+		MW += 1.0;
+	}
+	if (MW > MAXWATTAGE)
+		MW = MAXWATTAGE;
+}
+
+void decrementWattage()
+{
+	if(debouncecheck) {
+		MW_former = MW;
+		MW -= 1.0;
+	}
+	if (MW < MINWATTAGE)
+		MW = MINWATTAGE;
+}
+
 /*
 	interrupt timer every few seconds (this is not important, no need to stop interrupts? 3.3ms to complete)
 	if (abs(watts - watts_former) > 0.2) {
@@ -286,7 +308,10 @@ void setup()
 
 	// initialize interrupts
 	interruptTimer2Setup(); // interrupt timer every 2ms
+
 	// interrupt for wattage change (encoder/buttons)
+	PCintPort::attachInterrupt(PIN_WATTSINC,incrementWattage,FALLING);
+	PCintPort::attachInterrupt(PIN_WATTSDEC,decrementWattage,FALLING);
 
 	// display boot logo
 	u8g.firstPage();
