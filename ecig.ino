@@ -12,7 +12,7 @@ char line1[15];
 char line2[15];
 char line3[15];
 
-#include <PinChangeInt.h> // wattage-change interrupts
+//#include <PinChangeInt.h> // wattage-change interrupts
 
 // pin definitions
 #define PIN_BOARDLED    13
@@ -144,10 +144,11 @@ ISR(TIMER2_COMPA_vect) // triggered when Timer2 counts to 124
 	}
   
 	if (N > 2500) {                            // reset if 2.5 seconds go by without a beat
+		heart_BPM = 0;                          // heart rate back to zero
 		thresh = 512;                           // set thresh default
 		peak = 512;                             // set P default
 		trough = 512;                           // set T default
-		lastBeatTime = sampleCounter;           // bring the lastBeatTime up to date        
+		lastBeatTime = sampleCounter;           // bring the lastBeatTime up to date
 		firstBeat = true;                       // set these to avoid noise
 		secondBeat = true;                      // when we get the heartbeat back
 	}
@@ -188,8 +189,8 @@ void updateline1()
 	uint16_t y = MW;
 	uint16_t x = y / 1000;
 	y -= x * 1000;
-	if (MW > MAXmV) // guarantees 5 characters
-		(void) sprintf(line1,"DANGR %2d.%dW",x,y/100);
+	if (MW > MAXWATTAGE)
+		(void) sprintf(line1,"DANGR %2d.%dW",x,y/100); // not used in this case
 	else
 		(void) sprintf(line1,"Power %2d.%dW",x,y/100);
 }
@@ -248,15 +249,11 @@ void draw() // graphic commands (will redraw the complete screen)
 	u8g.drawFrame(0,0,SCREENWIDTH,SCREENHEIGHT); // frame around screen
 }
 
-// interrupts
-/*watts change (encoder)*/
-/**/
-
 void incrementWattage()
 {
 	if(debouncecheck) {
 		MW_former = MW;
-		MW += 1.0;
+		MW += 500;
 	}
 	if (MW > MAXWATTAGE)
 		MW = MAXWATTAGE;
@@ -266,19 +263,11 @@ void decrementWattage()
 {
 	if(debouncecheck) {
 		MW_former = MW;
-		MW -= 1.0;
+		MW -= 500;
 	}
 	if (MW < MINWATTAGE)
 		MW = MINWATTAGE;
 }
-
-/*
-	interrupt timer every few seconds (this is not important, no need to stop interrupts? 3.3ms to complete)
-	if (abs(watts - watts_former) > 0.2) {
-		int tmpwatts = watts * 10;
-		EEPROM.write(EEPROM_WATTS, watts); lastwatts = watts
-	}
-*/
 
 // the setup routine runs once after device boot (gains power or is reset)
 void setup()
@@ -296,22 +285,20 @@ void setup()
 	pinMode(PIN_COIL_PWM,OUTPUT);
 	// input pins
 	pinMode(PIN_READVOLTAGE,INPUT);
-	pinMode(PIN_WATTSINC,INPUT);
-	pinMode(PIN_WATTSDEC,INPUT);
+	pinMode(PIN_WATTSINC,INPUT_PULLUP); // enables the pull-up resistor on these for interrupting
+	pinMode(PIN_WATTSDEC,INPUT_PULLUP);
 	pinMode(PIN_HR_MONITOR,INPUT);
 	// prepare pins
 	digitalWrite(PIN_BOARDLED,LOW);     // disable onboard LED
 	analogWrite(PIN_COIL_PWM,0);        // ensure coil pin is not providing output
 	digitalWrite(PIN_READVOLTAGE,HIGH); // prepare input pins for test LOW to GND with internal pullup resistor
-	digitalWrite(PIN_WATTSINC,HIGH);
-	digitalWrite(PIN_WATTSDEC,HIGH);
 
 	// initialize interrupts
 	interruptTimer2Setup(); // interrupt timer every 2ms
 
 	// interrupt for wattage change (encoder/buttons)
-	PCintPort::attachInterrupt(PIN_WATTSINC,incrementWattage,FALLING);
-	PCintPort::attachInterrupt(PIN_WATTSDEC,decrementWattage,FALLING);
+	//PCintPort::attachInterrupt(PIN_WATTSINC,incrementWattage,RISING);
+	//PCintPort::attachInterrupt(PIN_WATTSDEC,decrementWattage,RISING);
 
 	// display boot logo
 	u8g.firstPage();
@@ -340,8 +327,12 @@ void loop()
 	updateline3();
 	updatescreen(); // power use should be negligible
 	if (digitalRead(PIN_PUSHBUTTON) == HIGH) {
-		analogWrite(PIN_COIL_PWM,(MW * 255) / (getmV() * getmV() / COILmOHMS)); // PWM amout
+		analogWrite(PIN_COIL_PWM,(MW * 255) / (getmV() * getmV() / COILmOHMS)); // PWM amout .. handles during charge (may function during charge)
 	} else {
 		analogWrite(PIN_COIL_PWM,0);
 	}
+	if (digitalRead(PIN_WATTSDEC) == HIGH)
+		decrementWattage();
+	if (digitalRead(PIN_WATTSINC) == HIGH)
+		incrementWattage();
 }
