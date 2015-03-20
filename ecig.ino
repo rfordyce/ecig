@@ -47,6 +47,7 @@ volatile uint16_t MW_former = MW;
 volatile uint32_t currentmv = 7400; // larger to deal with overflow
 volatile uint32_t debouncelock = 0; // contains millis()
 bool pwmlock = false;
+volatile uint8_t poweron = 0;
 
 // BPM values
 volatile uint8_t heart_BPM = 0;           // used to hold the pulse rate
@@ -78,20 +79,40 @@ const uint8_t low_battery_bits[] PROGMEM = {
 // https://bluepichu.wordpress.com/2012/07/16/fast-pwm-with-arduino-fast/
 void interruptTimer1Setup()
 {
-	TCCR1A = 0; // set entire TCCR1A register to 0
+/*	TCCR1A = 0; // set entire TCCR1A register to 0
 	TCCR1B = 0; // set entire TCCR1B register to 0 
 	
-	TCCR1A |= (1 << WGM10); // enable mode 15 Fast PWM (TOP is OCR1A)
-	TCCR1A |= (1 << WGM11);
-	TCCR1B |= (1 << WGM12);
-	TCCR1B |= (1 << WGM13);
+	//TCCR1A |= (1 << WGM10); // enable mode 15 Fast PWM (TOP is OCR1A)
+	//TCCR1A |= (1 << WGM11);
+	TCCR1B |= (1 << WGM12); // enable mode 4 CTC
+	//TCCR1B |= (1 << WGM13);
 	
 	TCCR1B |= (1 << CS10); // Set CS10 bit so timer runs at clock speed (no prescaling)
 
-	TCCR1A |= (1 << COM1A0); // Toggle OC1A (digital pin 9) on Compare Match. doc8161.pdf p135 Table 15.2
+	//TCCR1A |= (1 << COM1A0); // Toggle OC1A (digital pin 9) on Compare Match. doc8161.pdf p135 Table 15.2
 	
-	OCR1A = 65534 * MW / ((currentmv * currentmv) / COILmOHMS); // set TOP
-	//OCR1A = 30000;
+	//OCR1A = 655354 * MW / ((currentmv * currentmv) / COILmOHMS); // set TOP
+	//OCR1A = 255 * MW / ((currentmv * currentmv) / COILmOHMS); // set TOP
+	OCR1A = 255;*/
+
+	// modified from https://sites.google.com/site/qeewiki/books/avr-guide/timers-on-the-atmega328
+	//OCR1A = 0x3D08; // 15624
+	OCR1A = 0x0F42; //  3096 ( /4)
+	
+	TCCR1B |= (1 << WGM12); // Mode 4, CTC on OCR1A
+	TIMSK1 |= (1 << OCIE1A); //Set interrupt on compare match
+	TCCR1B |= (1 << CS10); // Set CS10 bit so timer runs at clock speed (no prescaling)
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+	if (poweron < MW / (((currentmv * currentmv) / COILmOHMS) / 100)) { // ugly order to correct for rollovers
+		digitalWrite(PIN_COIL_PWM,HIGH); // digitalWrite is fine at this speed
+	} else {
+		digitalWrite(PIN_COIL_PWM,LOW);
+	}
+	poweron++;
+	if (poweron > 100) poweron = 0;
 }
 
 // timer 2
