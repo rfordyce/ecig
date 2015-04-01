@@ -12,8 +12,7 @@ char line1[15];
 char line2[15];
 char line3[15];
 
-
-#include <TimerOne.h>
+//#include <TimerOne.h>
 
 // pin definitions
 #define PIN_BOARDLED    13
@@ -325,14 +324,13 @@ void setup()
 	pinMode(PIN_COIL_PWM,OUTPUT);
 	// input pins
 	pinMode(PIN_READVOLTAGE,INPUT);
-	pinMode(PIN_PUSHBUTTON,INPUT_PULLUP); // INPUT_PULLUP enables the pull-up resistor on these to protect them
-	pinMode(PIN_WATTSINC,INPUT_PULLUP);
-	pinMode(PIN_WATTSDEC,INPUT_PULLUP);
+	pinMode(PIN_PUSHBUTTON,INPUT);
+	pinMode(PIN_WATTSINC,INPUT);
+	pinMode(PIN_WATTSDEC,INPUT);
 	pinMode(PIN_HR_MONITOR,INPUT);
 	// prepare pins
 	digitalWrite(PIN_BOARDLED,LOW);     // disable onboard LED
 	analogWrite(PIN_COIL_PWM,0);        // ensure coil pin is not providing output
-	digitalWrite(PIN_READVOLTAGE,HIGH); // prepare input pins for test LOW to GND with internal pullup resistor
 
 	// initialize interrupts
 	interruptTimer2Setup(); // interrupt timer every 2ms for heart rate monitor
