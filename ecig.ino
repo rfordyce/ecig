@@ -12,7 +12,7 @@ char line1[15];
 char line2[15];
 char line3[15];
 
-//#include <TimerOne.h>
+#include "TimerOne.h"
 
 // pin definitions
 #define PIN_BOARDLED    13
@@ -21,6 +21,7 @@ char line3[15];
 #define PIN_WATTSINC     7
 #define PIN_WATTSDEC     6
 #define PIN_COIL_PWM     9 // default of timer1 Fast PWM mode
+#define PIN_T1_CLOCK    10 // default of timer1 
 //#define PIN_HR_MONITOR  A2
 #define PIN_HR_MONITOR  A0
 
@@ -76,26 +77,8 @@ const uint8_t low_battery_bits[] PROGMEM = {
 
 
 // https://bluepichu.wordpress.com/2012/07/16/fast-pwm-with-arduino-fast/
-void interruptTimer1Setup()
+/*void interruptTimer1Setup()
 {
-/*	TCCR1A = 0; // set entire TCCR1A register to 0
-	TCCR1B = 0; // set entire TCCR1B register to 0 
-	
-	//TCCR1A |= (1 << WGM10); // enable mode 15 Fast PWM (TOP is OCR1A)
-	//TCCR1A |= (1 << WGM11);
-	TCCR1B |= (1 << WGM12); // enable mode 4 CTC
-	//TCCR1B |= (1 << WGM13);
-	
-	TCCR1B |= (1 << CS10); // Set CS10 bit so timer runs at clock speed (no prescaling)
-
-	//TCCR1A |= (1 << COM1A0); // Toggle OC1A (digital pin 9) on Compare Match. doc8161.pdf p135 Table 15.2
-	
-	//OCR1A = 655354 * MW / ((currentmv * currentmv) / COILmOHMS); // set TOP
-	//OCR1A = 255 * MW / ((currentmv * currentmv) / COILmOHMS); // set TOP
-	OCR1A = 255;*/
-
-	// modified from https://sites.google.com/site/qeewiki/books/avr-guide/timers-on-the-atmega328
-	//OCR1A = 0x3D08; // 15624
 	OCR1A = 0x0F42; //  3096 ( /4)
 	
 	TCCR1B |= (1 << WGM12); // Mode 4, CTC on OCR1A
@@ -112,7 +95,7 @@ ISR(TIMER1_COMPA_vect)
 	}
 	poweron++;
 	if (poweron > 100) poweron = 0;
-}
+}*/
 
 // timer 2
 // described here http://pulsesensor.com/pages/pulse-sensor-amped-arduino-v1dot1
@@ -308,6 +291,11 @@ void decrementWattage()
 		MW = MINWATTAGE;
 }
 
+void callback()
+{
+	digitalWrite(10, digitalRead(10) ^ 1);
+}
+
 // the setup routine runs once after device boot (gains power or is reset)
 void setup()
 {
@@ -334,6 +322,10 @@ void setup()
 
 	// initialize interrupts
 	interruptTimer2Setup(); // interrupt timer every 2ms for heart rate monitor
+
+	Timer1.initialize(1000); // 1ms timer
+	Timer1.pwm(PIN_COIL_PWM, 0); // pwm on pin 9
+	Timer1.attachInterrupt(callback);
 
 	currentmv = getmV(); // update current millivolts for initial display image
 	
@@ -375,15 +367,11 @@ void loop()
 
 	if (digitalRead(PIN_PUSHBUTTON) == HIGH and debouncecheck() and !pwmlock) {
 		pwmlock = true; // prevent timer from continually being re-set until released
-		interruptTimer1Setup(); // enable timer1
+		Timer1.pwm(PIN_COIL_PWM, 0); // pwm on pin 9
 		digitalWrite(PIN_BOARDLED,HIGH); // DEBUG: turn on board LED
 	}
 	if (digitalRead(PIN_PUSHBUTTON) == LOW and debouncecheck()) {
-		TCCR1A = 0; // disable/wipe timer 1
-		TCCR1B = 0;
-		//analogWrite(PIN_COIL_PWM,0); // ensure PWM coil isn't still running
-		digitalWrite(PIN_COIL_PWM,LOW);
-		digitalWrite(PIN_BOARDLED,LOW); // DEBUG: turn off board LED
+		Timer1.pwm(PIN_COIL_PWM, 0); // pwm on pin 9
 		pwmlock = false; // allow button to be pressed again
 	}
 }
